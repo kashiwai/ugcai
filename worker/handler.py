@@ -23,6 +23,11 @@ import requests
 import boto3
 from botocore.config import Config
 
+# モデルを初回起動時にダウンロード (Network Volume にキャッシュ)
+from download_models import ensure_models
+ensure_models()
+
+
 MUSETALK_DIR = "/app/MuseTalk"
 SADTALKER_DIR = "/app/SadTalker"
 WAV2LIP_DIR = "/app/Wav2Lip"

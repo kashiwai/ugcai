@@ -1,0 +1,90 @@
+name: Build & Push Worker Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/build-worker.yml'
+  workflow_dispatch:  # 手動実行も可能
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/ugc-worker
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./worker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # ビルドキャッシュ (2回目以降を高速化)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Output image URL
+        run: |
+          echo "✅ Image pushed: ghcr.io/${{ github.repository }}/ugc-worker:latest"
+          echo "次のステップ: RunPod EndpointにこのイメージURLを設定"
+
+  create-runpod-endpoint:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Create or update RunPod Serverless Endpoint
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          IMAGE: ghcr.io/${{ github.repository }}/ugc-worker:latest
+        run: |
+          # RunPod GraphQL API でエンドポイントを作成
+          RESPONSE=$(curl -s -X POST "https://api.runpod.io/graphql" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            -d "{
+              \"query\": \"mutation { saveEndpoint(input: { name: \\\"ugc-worker\\\", imageName: \\\"${IMAGE}\\\", gpuIds: \\\"NVIDIA GeForce RTX 4090\\\", workersMin: 0, workersMax: 5, idleTimeout: 30, scalerType: \\\"QUEUE_DELAY\\\", scalerValue: 4, containerDiskInGb: 50, volumeInGb: 20 }) { id name } }\"
+            }")
+
+          echo "Response: ${RESPONSE}"
+          ENDPOINT_ID=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('saveEndpoint',{}).get('id',''))" 2>/dev/null || echo "")
+
+          if [ -n "$ENDPOINT_ID" ]; then
+            echo "✅ RunPod Endpoint created: ${ENDPOINT_ID}"
+            echo "RUNPOD_ENDPOINT_ID=${ENDPOINT_ID}" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Endpoint creation response: ${RESPONSE}"
+          fi
