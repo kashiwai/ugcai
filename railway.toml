@@ -1,10 +1,6 @@
-# Railway 設定ファイル (Railpack対応)
 [build]
 builder = "dockerfile"
-
-[build.dockerfilePath]
-# server/Dockerfile を使用
-value = "server/Dockerfile"
+dockerfilePath = "server/Dockerfile"
 
 [deploy]
 startCommand = "node index.js"
