@@ -1,0 +1,29 @@
+# UGC Engine gitignore
+
+# 秘密情報（絶対にコミットしない）
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Output files (動画・音声は通常コミットしない)
+output/
+*.mp4
+*.wav
+*.log
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

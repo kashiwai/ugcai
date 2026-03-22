@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UGC Engine - ダッシュボード</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0d0d14;
+    --surface: #161622;
+    --surface2: #1e1e2e;
+    --border: #2a2a3d;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, #1a1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 700;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .status-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Config bar */
+  .config-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .config-bar label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .config-bar input {
+    flex: 1; min-width: 260px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px;
+    color: var(--text); font-size: 13px; outline: none;
+  }
+  .config-bar input:focus { border-color: var(--accent); }
+  .btn {
+    padding: 7px 16px; border-radius: 6px; border: none;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #5b21b6);
+    color: white;
+  }
+  .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--accent); }
+
+  /* Main */
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+    position: relative; overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+  .stat-value { font-size: 32px; font-weight: 700; line-height: 1; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.cyan { color: var(--accent2); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* Two column layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 99px;
+    background: var(--surface2); color: var(--muted);
+  }
+  .card-body { padding: 20px; }
+
+  /* Activity feed */
+  .activity-feed { max-height: 400px; overflow-y: auto; }
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+  }
+  .activity-icon.completed { background: rgba(16,185,129,.15); color: var(--green); }
+  .activity-icon.failed { background: rgba(239,68,68,.15); color: var(--red); }
+  .activity-icon.active { background: rgba(6,182,212,.15); color: var(--accent2); }
+  .activity-info { flex: 1; min-width: 0; }
+  .activity-title { font-weight: 500; }
+  .activity-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .activity-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  /* Breakdown bars */
+  .breakdown-item { margin-bottom: 12px; }
+  .breakdown-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .breakdown-bar { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .breakdown-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
+
+  /* Queue chart (simple) */
+  .queue-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; font-size: 13px; }
+  .queue-label { width: 80px; color: var(--muted); }
+  .queue-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .queue-bar { height: 100%; border-radius: 99px; transition: width .4s; }
+  .queue-bar.waiting { background: var(--yellow); }
+  .queue-bar.active  { background: var(--accent2); }
+  .queue-bar.completed { background: var(--green); }
+  .queue-bar.failed  { background: var(--red); }
+  .queue-count { width: 40px; text-align: right; font-weight: 500; }
+
+  /* Log */
+  .log-area {
+    background: #080810; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; line-height: 1.7; max-height: 260px; overflow-y: auto;
+    color: #94a3b8;
+  }
+  .log-area .log-time { color: var(--muted); }
+  .log-area .log-ok   { color: var(--green); }
+  .log-area .log-err  { color: var(--red); }
+  .log-area .log-info { color: var(--accent2); }
+
+  /* Refresh indicator */
+  .refresh-info { font-size: 11px; color: var(--muted); }
+  .spin { display: inline-block; animation: spin .8s linear infinite; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+
+  hr.section { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎬</div>
+    <span>UGC Engine</span>
+  </div>
+  <div class="status-badge">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">接続中...</span>
+    <span class="refresh-info" id="refreshInfo"></span>
+  </div>
+</header>
+
+<div class="config-bar">
+  <label>Railway API URL</label>
+  <input type="text" id="apiUrl" placeholder="https://your-app.up.railway.app" />
+  <label>API Key</label>
+  <input type="password" id="apiKey" placeholder="your-api-secret" />
+  <button class="btn btn-primary" onclick="connect()">接続</button>
+  <button class="btn btn-secondary" onclick="clearLog()">ログクリア</button>
+</div>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">✅ 完了</div>
+      <div class="stat-value green" id="statCompleted">—</div>
+      <div class="stat-sub">累計生成</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">⚡ 処理中</div>
+      <div class="stat-value cyan" id="statActive">—</div>
+      <div class="stat-sub">GPU処理中</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">⏳ 待機中</div>
+      <div class="stat-value yellow" id="statWaiting">—</div>
+      <div class="stat-sub">キュー待ち</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">❌ 失敗</div>
+      <div class="stat-value red" id="statFailed">—</div>
+      <div class="stat-sub">エラー</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🕐 平均処理時間</div>
+      <div class="stat-value" style="font-size:24px" id="statDuration">—</div>
+      <div class="stat-sub">秒/動画</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📈 直近1時間</div>
+      <div class="stat-value" style="font-size:24px" id="statLastHour">—</div>
+      <div class="stat-sub">本/時間</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Queue status -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">キュー状況</span>
+        <span class="card-badge" id="totalJobs">—件</span>
+      </div>
+      <div class="card-body">
+        <div class="queue-row">
+          <span class="queue-label">待機中</span>
+          <div class="queue-bar-wrap"><div class="queue-bar waiting" id="barWaiting" style="width:0%"></div></div>
+          <span class="queue-count" id="cntWaiting">0</span>
+        </div>
+        <div class="queue-row">
+          <span class="queue-label">処理中</span>
+          <div class="queue-bar-wrap"><div class="queue-bar active" id="barActive" style="width:0%"></div></div>
+          <span class="queue-count" id="cntActive">0</span>
+        </div>
+        <div class="queue-row">
+          <span class="queue-label">完了</span>
+          <div class="queue-bar-wrap"><div class="queue-bar completed" id="barCompleted" style="width:0%"></div></div>
+          <span class="queue-count" id="cntCompleted">0</span>
+        </div>
+        <div class="queue-row">
+          <span class="queue-label">失敗</span>
+          <div class="queue-bar-wrap"><div class="queue-bar failed" id="barFailed" style="width:0%"></div></div>
+          <span class="queue-count" id="cntFailed">0</span>
+        </div>
+
+        <hr class="section" style="margin: 16px 0">
+        <div class="card-title" style="font-size:12px;color:var(--muted);margin-bottom:12px">モデル別</div>
+        <div id="modelBreakdown">
+          <div class="empty">接続後に表示されます</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Character breakdown -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">キャラクター別</span>
+      </div>
+      <div class="card-body">
+        <div id="charBreakdown">
+          <div class="empty">接続後に表示されます</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity feed -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+      <span class="card-title">最新アクティビティ</span>
+      <span class="card-badge" id="activityBadge">—</span>
+    </div>
+    <div class="activity-feed card-body" id="activityFeed">
+      <div class="empty">接続後に表示されます</div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">接続ログ</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="log-area" id="logArea"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let apiUrl = localStorage.getItem('ugc_api_url') || '';
+  let apiKey  = localStorage.getItem('ugc_api_key')  || '';
+  let refreshTimer = null;
+  let isConnected = false;
+
+  // Restore saved config
+  document.getElementById('apiUrl').value = apiUrl;
+  document.getElementById('apiKey').value = apiKey;
+  if (apiUrl && apiKey) connect();
+
+  function connect() {
+    apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+    apiKey = document.getElementById('apiKey').value.trim();
+    localStorage.setItem('ugc_api_url', apiUrl);
+    localStorage.setItem('ugc_api_key', apiKey);
+
+    log('info', `接続中: ${apiUrl}`);
+    if (refreshTimer) clearInterval(refreshTimer);
+    fetchAll();
+    refreshTimer = setInterval(fetchAll, 5000);
+  }
+
+  async function fetchAll() {
+    try {
+      const [statsRes, activityRes] = await Promise.all([
+        fetch(`${apiUrl}/api/stats`, { headers: { 'x-api-key': apiKey } }),
+        fetch(`${apiUrl}/api/activity?limit=30`, { headers: { 'x-api-key': apiKey } }),
+      ]);
+
+      if (!statsRes.ok) throw new Error(`Stats: ${statsRes.status}`);
+
+      const stats = await statsRes.json();
+      const activity = activityRes.ok ? await activityRes.json() : { activity: [] };
+
+      updateStats(stats);
+      updateActivity(activity.activity || []);
+      setConnected(true);
+      document.getElementById('refreshInfo').textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
+
+    } catch(e) {
+      setConnected(false);
+      log('err', `取得失敗: ${e.message}`);
+    }
+  }
+
+  function updateStats(data) {
+    const q = data.queue || {};
+    const t = data.throughput || {};
+    const b = data.breakdown || {};
+
+    document.getElementById('statCompleted').textContent = q.completed ?? '—';
+    document.getElementById('statActive').textContent    = q.active    ?? '—';
+    document.getElementById('statWaiting').textContent   = q.waiting   ?? '—';
+    document.getElementById('statFailed').textContent    = q.failed    ?? '—';
+    document.getElementById('statDuration').textContent  = t.avg_duration_seconds ? `${t.avg_duration_seconds}s` : '—';
+    document.getElementById('statLastHour').textContent  = t.last_hour ?? '—';
+
+    const total = (q.waiting||0) + (q.active||0) + (q.completed||0) + (q.failed||0) || 1;
+    document.getElementById('totalJobs').textContent = `${total}件`;
+
+    setBar('barWaiting',   'cntWaiting',   q.waiting||0,   total);
+    setBar('barActive',    'cntActive',    q.active||0,    total);
+    setBar('barCompleted', 'cntCompleted', q.completed||0, total);
+    setBar('barFailed',    'cntFailed',    q.failed||0,    total);
+
+    renderBreakdown('modelBreakdown', b.by_model || {});
+    renderBreakdown('charBreakdown',  b.by_character || {});
+  }
+
+  function setBar(barId, cntId, val, total) {
+    document.getElementById(barId).style.width = `${Math.round(val/total*100)}%`;
+    document.getElementById(cntId).textContent = val;
+  }
+
+  function renderBreakdown(containerId, data) {
+    const el = document.getElementById(containerId);
+    const entries = Object.entries(data).sort((a,b) => b[1]-a[1]);
+    if (!entries.length) { el.innerHTML = '<div class="empty">データなし</div>'; return; }
+    const max = entries[0][1];
+    el.innerHTML = entries.map(([k,v]) => `
+      <div class="breakdown-item">
+        <div class="breakdown-label"><span>${k}</span><span>${v}</span></div>
+        <div class="breakdown-bar"><div class="breakdown-fill" style="width:${Math.round(v/max*100)}%"></div></div>
+      </div>
+    `).join('');
+  }
+
+  function updateActivity(items) {
+    document.getElementById('activityBadge').textContent = `${items.length}件`;
+    if (!items.length) {
+      document.getElementById('activityFeed').innerHTML = '<div class="empty">アクティビティなし</div>';
+      return;
+    }
+    const icons = { completed: '✅', failed: '❌', active: '⚡' };
+    document.getElementById('activityFeed').innerHTML = items.map(item => {
+      const icon = icons[item.type] || '○';
+      const dur = item.duration ? ` · ${item.duration}s` : '';
+      const ts = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('ja-JP') : '';
+      const err = item.error ? `<div style="color:var(--red);font-size:11px">${item.error.substring(0,80)}</div>` : '';
+      return `<div class="activity-item">
+        <div class="activity-icon ${item.type}">${icon}</div>
+        <div class="activity-info">
+          <div class="activity-title">${item.character || '—'} · ${item.model || '—'}${dur}</div>
+          <div class="activity-meta">${item.jobId?.substring(0,8)}...${err}</div>
+        </div>
+        <div class="activity-time">${ts}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function setConnected(ok) {
+    isConnected = ok;
+    document.getElementById('statusDot').className = 'status-dot' + (ok ? '' : ' offline');
+    document.getElementById('statusText').textContent = ok ? '接続済み' : '切断';
+  }
+
+  function log(type, msg) {
+    const el = document.getElementById('logArea');
+    const time = new Date().toLocaleTimeString('ja-JP');
+    const cls = type === 'err' ? 'log-err' : type === 'ok' ? 'log-ok' : 'log-info';
+    el.innerHTML += `<div><span class="log-time">[${time}]</span> <span class="${cls}">${msg}</span></div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function clearLog() {
+    document.getElementById('logArea').innerHTML = '';
+  }
+</script>
+</body>
+</html>
