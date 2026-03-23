@@ -11,9 +11,9 @@ from config import ANTHROPIC_API_KEY, CHARACTERS, CONTENT_TYPES
 
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
-# claude-3-5-sonnet-20241022 = 最新の高品質モデル（高速・低コスト）
+# claude-sonnet-4-6 = 最新モデル (2026年3月現在)
 # claude-3-opus-20240229    = 最高品質（低速・高コスト）
-CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 
 SYSTEM_PROMPT = """あなたは日本のSNSマーケティングの天才CMOです。
 TikTok/Instagram/Xで1億ビューを達成した実績があります。
