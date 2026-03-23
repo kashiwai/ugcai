@@ -1,8 +1,8 @@
 """
 UGC Engine - Model Download Script
 =====================================
-RunPod Network Volume (/runpod-volume/models) にモデルを保存。
-初回起動時のみダウンロード、2回目以降はキャッシュを使用。
+MuseTalkモデルを /app/MuseTalk/models/ に直接ダウンロード。
+Network Volumeがある場合は MODEL_DIR にキャッシュ → シンボリックリンクで高速化。
 
 手動実行: python download_models.py
 """
@@ -11,91 +11,102 @@ import shutil
 from pathlib import Path
 from huggingface_hub import snapshot_download, hf_hub_download
 
-MODEL_DIR = Path(os.environ.get("MODEL_DIR", "/runpod-volume/models"))
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
-
 MUSETALK_DIR = Path("/app/MuseTalk")
+MUSETALK_MODELS = MUSETALK_DIR / "models"   # MuseTalkが期待するパス
 
-def download_if_missing(dest: Path, download_fn):
-    """ファイルが存在しない場合のみダウンロード"""
-    if dest.exists() and any(dest.iterdir()):
-        print(f"  ✓ Already exists: {dest}")
-        return
-    print(f"  ↓ Downloading to: {dest}")
-    dest.mkdir(parents=True, exist_ok=True)
-    download_fn(dest)
+# Network Volume が /runpod-volume にある場合はキャッシュとして使う
+VOLUME_PATH = Path("/runpod-volume")
+HAS_VOLUME = VOLUME_PATH.exists() and os.environ.get("MODEL_DIR", "")
+
+
+def _is_ready(marker: Path) -> bool:
+    return marker.exists() and marker.stat().st_size > 0
+
 
 def setup_musetalk_models():
-    """MuseTalk v1.5 モデルをダウンロード & シンボリックリンク"""
-    models_base = MODEL_DIR / "musetalk_models"
-    
-    print("[1/5] MuseTalk v1.5 weights...")
-    download_if_missing(models_base / "musetalkV15", lambda d:
-        snapshot_download(repo_id="TMElyralab/MuseTalk", local_dir=str(d))
-    )
+    """
+    TMElyralab/MuseTalk HuggingFaceリポジトリを /app/MuseTalk/models/ にDL。
+    リポジトリのルートに musetalkV15/, sd-vae-ft-mse/, whisper/, dwpose/ がある。
+    """
+    MUSETALK_MODELS.mkdir(parents=True, exist_ok=True)
+    marker = MUSETALK_MODELS / "musetalkV15" / "musetalk.json"
 
-    print("[2/5] SD VAE (sd-vae-ft-mse)...")
-    download_if_missing(models_base / "sd-vae", lambda d:
-        snapshot_download(repo_id="stabilityai/sd-vae-ft-mse", local_dir=str(d))
-    )
+    if _is_ready(marker):
+        print(f"  ✓ MuseTalk models already at {MUSETALK_MODELS}")
+        return
 
-    print("[3/5] Whisper tiny...")
-    download_if_missing(models_base / "whisper", lambda d:
-        snapshot_download(repo_id="openai/whisper-tiny", local_dir=str(d))
-    )
+    if HAS_VOLUME:
+        # Network Volume にキャッシュ → /app/MuseTalk/models へシンボリックリンク
+        cache = VOLUME_PATH / "musetalk_repo"
+        cache_marker = cache / "musetalkV15" / "musetalk.json"
 
-    print("[4/5] DWPose...")
-    download_if_missing(models_base / "dwpose", lambda d:
-        snapshot_download(repo_id="yzd-v/DWPose", local_dir=str(d))
-    )
+        if not _is_ready(cache_marker):
+            print(f"  ↓ Downloading TMElyralab/MuseTalk → {cache}")
+            cache.mkdir(parents=True, exist_ok=True)
+            snapshot_download(
+                repo_id="TMElyralab/MuseTalk",
+                local_dir=str(cache),
+            )
 
-    # MuseTalkの models/ ディレクトリにシンボリックリンクを作成
-    musetalk_models = MUSETALK_DIR / "models"
-    musetalk_models.mkdir(exist_ok=True)
-    
-    for name in ["musetalkV15", "sd-vae", "whisper", "dwpose"]:
-        src = models_base / name
-        dst = musetalk_models / name
-        if not dst.exists() and src.exists():
-            dst.symlink_to(src)
-            print(f"  Linked: {dst} -> {src}")
+        # シンボリックリンクを作成
+        for name in ["musetalkV15", "sd-vae-ft-mse", "dwpose", "whisper"]:
+            src = cache / name
+            dst = MUSETALK_MODELS / name
+            if src.exists() and not dst.exists():
+                dst.symlink_to(src)
+                print(f"  Linked: {dst} → {src}")
+    else:
+        # Network Volumeなし: /app/MuseTalk/models/ に直接ダウンロード
+        print(f"  ↓ Downloading TMElyralab/MuseTalk → {MUSETALK_MODELS}")
+        snapshot_download(
+            repo_id="TMElyralab/MuseTalk",
+            local_dir=str(MUSETALK_MODELS),
+        )
+
+    if not _is_ready(marker):
+        raise RuntimeError(
+            f"MuseTalk model download failed: {marker} not found after download. "
+            "Check disk space and network connectivity."
+        )
+    print(f"  ✓ MuseTalk models ready at {MUSETALK_MODELS}")
+
 
 def setup_wav2lip_models():
-    """Wav2Lip モデルをダウンロード"""
-    print("[5/5] Wav2Lip GAN weights...")
-    dst = MODEL_DIR / "wav2lip" / "wav2lip_gan.pth"
-    
-    if dst.exists():
-        print(f"  ✓ Already exists: {dst}")
-    else:
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            hf_hub_download(
-                repo_id="numz/wav2lip_studio",
-                filename="Wav2Lip/wav2lip_gan.pth",
-                local_dir=str(dst.parent),
-            )
-            # hf_hub_download saves under repo structure; move to expected path
-            dl_path = dst.parent / "Wav2Lip" / "wav2lip_gan.pth"
-            if dl_path.exists():
-                shutil.move(str(dl_path), str(dst))
-            print(f"  ✓ Downloaded: {dst}")
-        except Exception as e:
-            print(f"  ⚠ Wav2Lip download failed: {e}")
+    """Wav2Lip モデルをダウンロード (/app/Wav2Lip/checkpoints/)"""
+    chk_dir = Path("/app/Wav2Lip/checkpoints")
+    chk_dir.mkdir(parents=True, exist_ok=True)
+    dst = chk_dir / "wav2lip_gan.pth"
 
-    # Wav2Lip checkpoints にシンボリックリンク
-    wav2lip_chk = Path("/app/Wav2Lip/checkpoints")
-    wav2lip_chk.mkdir(exist_ok=True)
-    link = wav2lip_chk / "wav2lip_gan.pth"
-    if not link.exists() and dst.exists():
-        link.symlink_to(dst)
+    if dst.exists() and dst.stat().st_size > 0:
+        print(f"  ✓ Wav2Lip model: {dst}")
+        return
+
+    print("  ↓ Downloading Wav2Lip GAN weights...")
+    try:
+        hf_hub_download(
+            repo_id="numz/wav2lip_studio",
+            filename="Wav2Lip/wav2lip_gan.pth",
+            local_dir=str(chk_dir),
+        )
+        dl_path = chk_dir / "Wav2Lip" / "wav2lip_gan.pth"
+        if dl_path.exists():
+            shutil.move(str(dl_path), str(dst))
+        print(f"  ✓ Wav2Lip model: {dst}")
+    except Exception as e:
+        print(f"  ⚠ Wav2Lip download failed (optional): {e}")
+
 
 def ensure_models():
-    """全モデルが揃っているか確認、なければダウンロード"""
-    print(f"\n=== Model Setup (MODEL_DIR={MODEL_DIR}) ===")
+    """全モデルの準備 (初回ジョブ時に呼び出す)"""
+    print(f"\n=== Model Setup ===")
+    print(f"  MUSETALK_MODELS: {MUSETALK_MODELS}")
+    print(f"  Network Volume: {'Yes' if HAS_VOLUME else 'No'}")
+
     setup_musetalk_models()
     setup_wav2lip_models()
+
     print("=== Model setup complete ===\n")
+
 
 if __name__ == "__main__":
     ensure_models()

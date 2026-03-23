@@ -21,6 +21,7 @@ import subprocess
 import shutil
 import requests
 import boto3
+from pathlib import Path
 from botocore.config import Config
 
 # モデルは初回ジョブ実行時にダウンロード（モジュール起動時ではない）
@@ -171,9 +172,10 @@ def handler(event):
     Output: { output_key, duration_seconds }
     """
     global _models_ready
-    # 初回ジョブ時のみモデルをダウンロード（起動時ではなく実行時に行う）
-    if not _models_ready:
-        print("[Worker] First job - downloading models to Network Volume...")
+    # モデルの実際の存在確認（フラグがTrueでもファイルがなければ再DL）
+    musetalk_marker = Path("/app/MuseTalk/models/musetalkV15/musetalk.json")
+    if not _models_ready or not musetalk_marker.exists():
+        print("[Worker] Setting up models...")
         from download_models import ensure_models
         ensure_models()
         _models_ready = True
