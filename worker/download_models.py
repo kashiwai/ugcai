@@ -64,10 +64,10 @@ def setup_musetalk_v15():
 
 def setup_sd_vae():
     """
-    Stable Diffusion VAE (sd-vae-ft-mse) を /app/MuseTalk/models/sd-vae-ft-mse/ にDL。
-    MuseTalkが内部で vae.encode/decode に使用。
+    Stable Diffusion VAE を /app/MuseTalk/models/sd-vae/ にDL。
+    MuseTalkが内部で vae.encode/decode に使用 (models/sd-vae を参照)。
     """
-    dst = MUSETALK_MODELS / "sd-vae-ft-mse"
+    dst = MUSETALK_MODELS / "sd-vae"
 
     if _is_nonempty_dir(dst):
         print(f"  ✓ SD VAE: {dst}")
