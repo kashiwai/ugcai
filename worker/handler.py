@@ -23,9 +23,9 @@ import requests
 import boto3
 from botocore.config import Config
 
-# モデルを初回起動時にダウンロード (Network Volume にキャッシュ)
-from download_models import ensure_models
-ensure_models()
+# モデルは初回ジョブ実行時にダウンロード（モジュール起動時ではない）
+# RunPodのコンテナ起動タイムアウトを回避するため
+_models_ready = False
 
 
 MUSETALK_DIR = "/app/MuseTalk"
@@ -170,6 +170,14 @@ def handler(event):
     Input: { job_id, face_image_key, audio_key, model, r2_bucket, r2_endpoint, ... }
     Output: { output_key, duration_seconds }
     """
+    global _models_ready
+    # 初回ジョブ時のみモデルをダウンロード（起動時ではなく実行時に行う）
+    if not _models_ready:
+        print("[Worker] First job - downloading models to Network Volume...")
+        from download_models import ensure_models
+        ensure_models()
+        _models_ready = True
+        print("[Worker] Models ready!")
     input_data = event["input"]
     job_id = input_data["job_id"]
     model = input_data.get("model", "musetalk")
