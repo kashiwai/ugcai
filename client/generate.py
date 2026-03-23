@@ -151,7 +151,8 @@ def generate_videos(count, character_filter=None, content_type=None, model=DEFAU
         face_image = CHARACTERS[char_key]["face_image"]
 
         # Upload face image (check if already uploaded)
-        face_key = f"faces/{char_key}.png"
+        face_ext = os.path.splitext(face_image)[1]  # .jpg or .png
+        face_key = f"faces/{char_key}{face_ext}"
         if os.path.exists(face_image):
             upload_file_to_r2(r2, face_image, face_key)
 
