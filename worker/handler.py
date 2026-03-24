@@ -172,14 +172,6 @@ def handler(event):
     Output: { output_key, duration_seconds }
     """
     global _models_ready
-    # モデルの実際の存在確認（フラグがTrueでもファイルがなければ再DL）
-    musetalk_marker = Path("/app/MuseTalk/models/musetalkV15/musetalk.json")
-    if not _models_ready or not musetalk_marker.exists():
-        print("[Worker] Setting up models...")
-        from download_models import ensure_models
-        ensure_models()
-        _models_ready = True
-        print("[Worker] Models ready!")
     input_data = event["input"]
     job_id = input_data["job_id"]
     model = input_data.get("model", "musetalk")
@@ -201,6 +193,17 @@ def handler(event):
     start_time = time.time()
 
     try:
+        # ✅ モデルセットアップ（try/except内で実行 - エラーが正確に報告される）
+        musetalk_marker = Path("/app/MuseTalk/models/musetalkV15/musetalk.json")
+        if not _models_ready or not musetalk_marker.exists():
+            print("[Worker] Setting up models (first run may take 10 min)...")
+            from download_models import ensure_models
+            ensure_models()
+            _models_ready = True
+            print("[Worker] Models ready!")
+        else:
+            print("[Worker] Models already available.")
+
         r2 = get_r2_client(input_data)
         bucket = input_data["r2_bucket"]
 
