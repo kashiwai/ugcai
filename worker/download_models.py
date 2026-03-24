@@ -194,6 +194,54 @@ def setup_wav2lip():
         print(f"  ⚠ Wav2Lip download failed (optional): {e}")
 
 
+def setup_sadtalker():
+    """
+    SadTalkerとGFPGANの推論に必要な重みをダウンロード。
+    """
+    st_dir = Path("/app/SadTalker")
+    st_chk = st_dir / "checkpoints"
+    st_gfp = st_dir / "gfpgan" / "weights"
+
+    marker_st = st_chk / "mapping_00109-model.pth.tar"
+    marker_gfp = st_gfp / "GFPGANv1.4.pth"
+
+    if _file_exists(marker_st) and _file_exists(marker_gfp):
+        print(f"  ✓ SadTalker models: {st_dir}")
+        return
+
+    print("  ↓ Downloading SadTalker & GFPGAN weights...")
+    st_chk.mkdir(parents=True, exist_ok=True)
+    st_gfp.mkdir(parents=True, exist_ok=True)
+
+    import urllib.request
+    try:
+        urls = {
+            "mapping_00109-model.pth.tar": "https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/mapping_00109-model.pth.tar",
+            "mapping_00229-model.pth.tar": "https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/mapping_00229-model.pth.tar",
+            "SadTalker_V0.0.2_256.safetensors": "https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/SadTalker_V0.0.2_256.safetensors",
+            "SadTalker_V0.0.2_512.safetensors": "https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/SadTalker_V0.0.2_512.safetensors",
+        }
+        for filename, url in urls.items():
+            if not _file_exists(st_chk / filename):
+                print(f"    Downloading {filename}...")
+                urllib.request.urlretrieve(url, str(st_chk / filename))
+        
+        gfp_urls = {
+            "alignment_WFLW_4HG.pth": "https://github.com/xinntao/facexlib/releases/download/v0.1.0/alignment_WFLW_4HG.pth",
+            "detection_Resnet50_Final.pth": "https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth",
+            "GFPGANv1.4.pth": "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
+            "parsing_parsenet.pth": "https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth",
+        }
+        for filename, url in gfp_urls.items():
+            if not _file_exists(st_gfp / filename):
+                print(f"    Downloading {filename}...")
+                urllib.request.urlretrieve(url, str(st_gfp / filename))
+                
+        print("  ✓ SadTalker & GFPGAN ready")
+    except Exception as e:
+        print(f"  ⚠ SadTalker models download failed (optional): {e}")
+
+
 def ensure_models():
     """全モデルの準備 (初回ジョブ時またはファイル未存在時に呼び出す)"""
     print(f"\n=== Model Setup ===")
@@ -216,6 +264,9 @@ def ensure_models():
 
     # Wav2Lip (musetalk以外のモデル用)
     setup_wav2lip()
+
+    # SadTalker (musetalk以外のモデル用)
+    setup_sadtalker()
 
     print("=== Model setup complete ===\n")
 
