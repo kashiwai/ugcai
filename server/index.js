@@ -307,14 +307,15 @@ const worker = new Worker("video-generation", async (job) => {
 
   console.log(`[Worker] RunPod job started: ${runpodJobId}`);
 
-  // Start async polling (non-blocking - don't await here)
-  pollRunPodStatus(runpodJobId, jobId).then(r => {
-    console.log(`[Poll] Job ${jobId} finished with status: ${r.status}`);
-  }).catch(err => {
+  // Await polling so BullMQ job stays active/waiting until RunPod finishes
+  try {
+    const result = await pollRunPodStatus(runpodJobId, jobId);
+    console.log(`[Poll] Job ${jobId} finished with status: ${result.status}`);
+    return result;
+  } catch (err) {
     console.error(`[Poll] Polling error for ${jobId}: ${err.message}`);
-  });
-
-  return { runpod_id: runpodJobId, status: "dispatched" };
+    throw err;
+  }
 }, { connection, concurrency: 10 });
 
 worker.on("completed", (job) => {
