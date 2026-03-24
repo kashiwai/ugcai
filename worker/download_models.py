@@ -107,26 +107,66 @@ def setup_whisper():
 
 def setup_dwpose():
     """
-    DWPose (yzd-v/DWPose) を /app/MuseTalk/models/dwpose/ にDL。
+    DWPose (専用ファイル) を /app/MuseTalk/models/dwpose/ にDL。
     MuseTalkが顔検出・ランドマーク検出に使用。
     """
     dst = MUSETALK_MODELS / "dwpose"
+    marker = dst / "dw-ll_ucoco_384.pth"
 
-    if _is_nonempty_dir(dst):
+    if _file_exists(marker):
         print(f"  ✓ DWPose: {dst}")
         return
 
-    print(f"  ↓ Downloading yzd-v/DWPose → {dst}")
+    print(f"  ↓ Downloading yzd-v/DWPose dw-ll_ucoco_384.pth → {dst}")
     dst.mkdir(parents=True, exist_ok=True)
     try:
-        snapshot_download(
+        hf_hub_download(
             repo_id="yzd-v/DWPose",
+            filename="dw-ll_ucoco_384.pth",
             local_dir=str(dst),
-            ignore_patterns=["*.git*"],
         )
         print(f"  ✓ DWPose ready")
     except Exception as e:
-        print(f"  ⚠ DWPose download failed (optional): {e}")
+        print(f"  ⚠ DWPose download failed: {e}")
+
+
+def setup_face_parse_bisent():
+    """
+    face-parse-bisent (顔パース) モデルをDL。
+    MuseTalkが顔領域アウトペイント/インペイントのマスト、フェイスブレンドに使用。
+    """
+    dst = MUSETALK_MODELS / "face-parse-bisent"
+    marker79 = dst / "79999_iter.pth"
+    marker_res = dst / "resnet18-5c106cde.pth"
+
+    if _file_exists(marker79) and _file_exists(marker_res):
+        print(f"  ✓ face-parse-bisent: {dst}")
+        return
+
+    print(f"  ↓ Downloading face-parse-bisent → {dst}")
+    dst.mkdir(parents=True, exist_ok=True)
+    import urllib.request
+    try:
+        if not _file_exists(marker_res):
+            print("    Downloading resnet18-5c106cde.pth...")
+            urllib.request.urlretrieve(
+                "https://download.pytorch.org/models/resnet18-5c106cde.pth",
+                str(marker_res)
+            )
+        if not _file_exists(marker79):
+            print("    Downloading 79999_iter.pth via gdown...")
+            try:
+                import gdown
+                gdown.download(
+                    id="154JgKpzCPW82qINcVieuPH3fZ2e0P812",
+                    output=str(marker79),
+                    quiet=False,
+                )
+            except Exception as e:
+                print(f"  ⚠ gdown failed: {e} - skip face-parse-bisent")
+        print(f"  ✓ face-parse-bisent ready")
+    except Exception as e:
+        print(f"  ⚠ face-parse-bisent download failed (non-fatal): {e}")
 
 
 def setup_wav2lip():
@@ -168,8 +208,11 @@ def ensure_models():
     # Whisper (必須 - ~75MB)
     setup_whisper()
 
-    # DWPose (MuseTalkの顔検出用 - optional)
+    # DWPose (必須 - 顔検出用)
     setup_dwpose()
+
+    # face-parse-bisent (顔パース用)
+    setup_face_parse_bisent()
 
     # Wav2Lip (musetalk以外のモデル用)
     setup_wav2lip()
