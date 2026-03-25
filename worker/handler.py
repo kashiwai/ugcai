@@ -118,7 +118,7 @@ def run_sadtalker(face_image_path, audio_path, output_path, work_dir):
         "--result_dir", result_dir,
         "--enhancer", "gfpgan",
         "--still",
-        "--preprocess", "crop",
+        "--preprocess", "full",
     ]
     print(f"Running SadTalker: {' '.join(cmd)}")
     result = subprocess.run(
